@@ -54,7 +54,6 @@ import com.asifulla.maya.accessibility.AgentAccessibilityService
 import com.asifulla.maya.agent.MayaAgent
 import com.asifulla.maya.agent.ToolOrchestrator
 import com.asifulla.maya.ai.OpenAIProvider
-import com.asifulla.maya.engine.MayaForegroundService
 import com.asifulla.maya.overlay.MayaOrbController
 import com.asifulla.maya.security.SecureConfig
 import com.asifulla.maya.voice.VoiceGuardian
@@ -138,12 +137,26 @@ class MainActivity : ComponentActivity() {
             }
             OutlinedTextField(value = command, onValueChange = { command = it }, Modifier.fillMaxWidth(), label = { Text("Ask MAYA anything") }, placeholder = { Text("Hindi, Hinglish, Kannada, Urdu, English…") }, minLines = 2)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(Modifier.weight(1f), enabled = command.isNotBlank(), onClick = {
-                    val text = command.trim(); command = ""; messages.add(true to text)
-                    scope.launch { status = "Thinking…"; runCatching { agent.execute(text) }.onSuccess { messages.add(false to it); status = "Ready" }.onFailure { messages.add(false to (it.message ?: "Failed")); status = "Needs attention" } }
-                }) { Text("Run") }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    enabled = command.isNotBlank(),
+                    onClick = {
+                        val text = command.trim()
+                        command = ""
+                        messages.add(true to text)
+                        scope.launch {
+                            status = "Thinking…"
+                            runCatching { agent.execute(text) }
+                                .onSuccess { messages.add(false to it); status = "Ready" }
+                                .onFailure { messages.add(false to (it.message ?: "Failed")); status = "Needs attention" }
+                        }
+                    }
+                ) { Text("Run") }
                 Button(onClick = {
-                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { voice.startListening(); status = "Listening…" } else requestRuntimePermissions()
+                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        voice.startListening()
+                        status = "Listening…"
+                    } else requestRuntimePermissions()
                 }) { Text("Voice") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
