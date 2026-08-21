@@ -31,7 +31,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +48,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.asifulla.maya.accessibility.AgentAccessibilityService
 import com.asifulla.maya.agent.MayaAgent
 import com.asifulla.maya.agent.ToolOrchestrator
@@ -81,11 +82,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun MayaApp() {
         var page by remember { mutableStateOf("home") }
-        if (page == "settings") {
-            SettingsScreen(onBack = { page = "home" })
-        } else {
-            HomeScreen(onSettings = { page = "settings" })
-        }
+        if (page == "settings") SettingsScreen(onBack = { page = "home" })
+        else HomeScreen(onSettings = { page = "settings" })
     }
 
     @Composable
@@ -112,14 +110,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        DisposableEffect(Unit) {
-            onDispose { voice.destroy(); orb.hide() }
-        }
+        DisposableEffect(Unit) { onDispose { voice.destroy(); orb.hide() } }
 
         Column(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant))
-            ).padding(18.dp),
+            Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant))).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -129,72 +123,32 @@ class MainActivity : ComponentActivity() {
                 }
                 TextButton(onClick = onSettings) { Text("Settings") }
             }
-
-            Card(
-                Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier.size(128.dp).background(
-                            Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)),
-                            CircleShape
-                        ),
-                        contentAlignment = Alignment.Center
-                    ) { Text("M", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold) }
+                    Box(Modifier.size(128.dp).background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)), CircleShape), contentAlignment = Alignment.Center) {
+                        Text("M", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(status, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Tap Voice or type a command", style = MaterialTheme.typography.bodySmall)
                 }
             }
-
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(messages) { (user, text) ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Text(if (user) "You: $text" else "MAYA: $text", Modifier.padding(12.dp))
-                    }
-                }
+                items(messages) { (user, text) -> Card(Modifier.fillMaxWidth()) { Text(if (user) "You: $text" else "MAYA: $text", Modifier.padding(12.dp)) } }
             }
-
-            OutlinedTextField(
-                value = command,
-                onValueChange = { command = it },
-                Modifier.fillMaxWidth(),
-                label = { Text("Ask MAYA anything") },
-                placeholder = { Text("Hindi, Hinglish, Kannada, Urdu, English…") },
-                minLines = 2
-            )
-
+            OutlinedTextField(value = command, onValueChange = { command = it }, Modifier.fillMaxWidth(), label = { Text("Ask MAYA anything") }, placeholder = { Text("Hindi, Hinglish, Kannada, Urdu, English…") }, minLines = 2)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    Modifier.weight(1f),
-                    enabled = command.isNotBlank(),
-                    onClick = {
-                        val text = command.trim()
-                        command = ""
-                        messages.add(true to text)
-                        scope.launch {
-                            status = "Thinking…"
-                            runCatching { agent.execute(text) }
-                                .onSuccess { reply -> messages.add(false to reply); status = "Ready" }
-                                .onFailure { messages.add(false to (it.message ?: "Failed")); status = "Needs attention" }
-                        }
-                    }
-                ) { Text("Run") }
+                Button(Modifier.weight(1f), enabled = command.isNotBlank(), onClick = {
+                    val text = command.trim(); command = ""; messages.add(true to text)
+                    scope.launch { status = "Thinking…"; runCatching { agent.execute(text) }.onSuccess { messages.add(false to it); status = "Ready" }.onFailure { messages.add(false to (it.message ?: "Failed")); status = "Needs attention" } }
+                }) { Text("Run") }
                 Button(onClick = {
-                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        voice.startListening(); status = "Listening…"
-                    } else requestRuntimePermissions()
+                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { voice.startListening(); status = "Listening…" } else requestRuntimePermissions()
                 }) { Text("Voice") }
             }
-
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, Modifier.weight(1f)) { Text("Permissions") }
-                OutlinedButton(onClick = {
-                    if (Settings.canDrawOverlays(this@MainActivity)) orb.show()
-                    else startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                }, Modifier.weight(1f)) { Text("Show Orb") }
+                OutlinedButton(onClick = onSettings, Modifier.weight(1f)) { Text("Permissions & AI") }
+                OutlinedButton(onClick = { if (Settings.canDrawOverlays(this@MainActivity)) orb.show() else startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }, Modifier.weight(1f)) { Text("Show Orb") }
             }
         }
     }
@@ -206,30 +160,37 @@ class MainActivity : ComponentActivity() {
         val labels = mapOf("openai" to "OpenAI", "gemini" to "Google Gemini", "groq" to "Groq", "openrouter" to "OpenRouter")
         val input = remember { mutableStateMapOf<String, String>() }
         var status by remember { mutableStateOf("API keys are encrypted on this device") }
-        var showSetup by remember { mutableStateOf(true) }
+        var permissionRefresh by remember { mutableStateOf(0) }
+
+        DisposableEffect(Unit) {
+            val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) permissionRefresh++ }
+            lifecycle.addObserver(observer)
+            onDispose { lifecycle.removeObserver(observer) }
+        }
+        @Suppress("UNUSED_VARIABLE") val refresh = permissionRefresh
 
         Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("MAYA Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 TextButton(onClick = onBack) { Text("Home") }
             }
-
-            if (showSetup) {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Device readiness", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        PermissionRow("Microphone", ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
-                        PermissionRow("Floating window", Settings.canDrawOverlays(this@MainActivity))
-                        PermissionRow("Accessibility", isAccessibilityEnabled())
-                        PermissionRow("Notification access", isNotificationAccessEnabled())
-                        OutlinedButton(onClick = { requestRuntimePermissions() }) { Text("Request missing permissions") }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Device readiness", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    PermissionRow("Microphone", ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+                    PermissionRow("Floating window", Settings.canDrawOverlays(this@MainActivity))
+                    PermissionRow("Accessibility", isAccessibilityEnabled())
+                    PermissionRow("Notification access", isNotificationAccessEnabled())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { requestRuntimePermissions() }) { Text("Request") }
+                        OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("Accessibility") }
+                        OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Notifications") }
                     }
                 }
             }
-
             Text("AI Providers", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Saving a key does not call the AI API. Quota/data-limit errors appear only when MAYA sends a request.", style = MaterialTheme.typography.bodySmall)
             Text(status, style = MaterialTheme.typography.bodySmall)
-
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(providers) { provider ->
                     val saved = config.hasProviderKey(provider)
@@ -240,26 +201,10 @@ class MainActivity : ComponentActivity() {
                                 Text(labels[provider].orEmpty(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(if (saved) "Saved ••••••••" else "Not configured", style = MaterialTheme.typography.bodySmall)
                             }
-                            OutlinedTextField(
-                                value = value,
-                                onValueChange = { input[provider] = it },
-                                Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                label = { Text("API key") },
-                                placeholder = { Text(if (saved) "Enter a new key to replace it" else "Paste key here") },
-                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
-                            )
+                            OutlinedTextField(value = value, onValueChange = { input[provider] = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("API key") }, placeholder = { Text(if (saved) "Enter a new key to replace it" else "Paste key here") }, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(enabled = value.isNotBlank(), onClick = {
-                                    config.putProviderKey(provider, value)
-                                    input[provider] = ""
-                                    status = "${labels[provider]} key saved securely and hidden"
-                                }) { Text("Save") }
-                                TextButton(enabled = saved, onClick = {
-                                    config.removeProviderKey(provider)
-                                    input[provider] = ""
-                                    status = "${labels[provider]} key removed"
-                                }) { Text("Remove") }
+                                Button(enabled = value.isNotBlank(), onClick = { config.putProviderKey(provider, value); input[provider] = ""; status = "${labels[provider]} key saved securely and hidden" }) { Text("Save") }
+                                TextButton(enabled = saved, onClick = { config.removeProviderKey(provider); input[provider] = ""; status = "${labels[provider]} key removed" }) { Text("Remove") }
                             }
                         }
                     }
