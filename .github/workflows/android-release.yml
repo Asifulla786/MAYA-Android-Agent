@@ -3,8 +3,7 @@ name: Android Release
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -21,16 +20,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Assemble debug APK
+      - name: Assemble release APK
         run: gradle :app:assembleDebug
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.run_number }}
-          name: MAYA v${{ github.run_number }}
-          body: |
-            MAYA Android Agent APK release.
-
-            This release contains the APK produced by the successful Android build workflow.
-          files: app/build/outputs/apk/debug/app-debug.apk
-          generate_release_notes: true
+      - name: Publish or update permanent Latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest app/build/outputs/apk/debug/app-debug.apk --clobber
+            gh release edit latest --title "MAYA Latest" --notes "Latest successful MAYA Android APK. Updated automatically from main." --latest
+          else
+            gh release create latest app/build/outputs/apk/debug/app-debug.apk --title "MAYA Latest" --notes "Latest successful MAYA Android APK. Updated automatically from main." --target "$GITHUB_SHA" --latest
+          fi
