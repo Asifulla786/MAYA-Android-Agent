@@ -41,3 +41,7 @@ Every successful push to `main` builds `app-debug.apk` and uploads it as the `MA
 ## Android limitations
 
 Accessibility, notification access, microphone background execution, SMS/call control, and screen capture are subject to Android version, OEM, permission, and Google Play policy restrictions. MAYA must report unavailable capabilities rather than pretending they succeeded.
+
+## CI verification
+
+This commit exists only to verify the corrected Kotlin build on GitHub Actions.
