@@ -9,18 +9,22 @@ import android.speech.tts.TextToSpeech
 import java.util.Locale
 
 class VoiceGuardian(context: Context, private val onCommand: (String) -> Unit) : RecognitionListener {
-    private val recognizer = SpeechRecognizer.createSpeechRecognizer(context).also { it.setRecognitionListener(this) }
+    private val appContext = context.applicationContext
+    private val recognizer = SpeechRecognizer.createSpeechRecognizer(appContext).also { it.setRecognitionListener(this) }
     private val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
     }
-    private val tts = TextToSpeech(context) { if (it == TextToSpeech.SUCCESS) tts.language = Locale.getDefault() }
+    private lateinit var tts: TextToSpeech
     @Volatile private var speaking = false
 
-    fun startListening() { if (!speaking && SpeechRecognizer.isRecognitionAvailable(context)) recognizer.startListening(intent) }
+    init { tts = TextToSpeech(appContext) { if (it == TextToSpeech.SUCCESS) tts.language = Locale.getDefault() } }
+
+    fun startListening() { if (!speaking && SpeechRecognizer.isRecognitionAvailable(appContext)) recognizer.startListening(intent) }
     fun stopListening() = recognizer.stopListening()
     fun speak(text: String) { speaking = true; tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "maya_reply") }
+    fun setSpeechFinished() { speaking = false; startListening() }
     fun destroy() { recognizer.destroy(); tts.shutdown() }
 
     override fun onResults(results: android.os.Bundle?) { val text=results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull(); if(!text.isNullOrBlank()) onCommand(text); startListening() }
