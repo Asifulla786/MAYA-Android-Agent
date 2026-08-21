@@ -1,35 +1,43 @@
 # MAYA Android Agent
 
-Native Kotlin + Jetpack Compose foundation for a MAYA/Jarvis-style Android agent.
+Native Kotlin + Jetpack Compose Android agent for user-authorized phone automation.
 
-## Current foundation
-- Kotlin + Jetpack Compose, MVVM-friendly structure
-- Min SDK 26 / Target SDK 34
-- AccessibilityService: node discovery, text/id/description click, typing, coordinate gestures, global actions
-- NotificationListenerService: WhatsApp/Telegram/Messages notification extraction and RemoteInput reply support
-- Foreground service foundation for long-running agent work
-- Draggable floating overlay orb
-- Voice STT/TTS guardian foundation
-- Room macro persistence model
-- Tool schema + fail-closed native ToolOrchestrator
-- EncryptedSharedPreferences for locally stored provider credentials
-- GitHub Actions Android build workflow
+## Current build
 
-## Important Android limitations
-Android does not grant arbitrary silent control of every application. Accessibility actions depend on what the target app exposes, Android version, OEM restrictions, and user-enabled Accessibility access. Background microphone, notification access, SMS, calls, and overlays are also permission- and policy-controlled.
+- Kotlin 2.0 / Jetpack Compose / Coroutines
+- Min SDK 26 / Target SDK 34 / Java 17
+- MVVM-friendly agent core
+- OpenAI Responses API provider with normalized native function tools
+- Encrypted on-device API-key storage using AndroidX Security
+- Accessibility UI automation: text, resource ID, description, typing, tap, swipe, Home, Back, Recents, Notifications
+- Installed-app launcher tool
+- Foreground service foundation
+- Notification listener + RemoteInput reply foundation
+- Floating draggable MAYA orb
+- Voice STT/TTS with echo-safe lifecycle
+- Room macro storage + deterministic macro executor
+- GitHub Actions debug APK artifact
 
-The implementation therefore fails closed instead of pretending unsupported operations are reliable.
+## First-time setup
 
-## API keys
-**Never commit an API key.** Do not put OpenAI/Gemini/Groq/OpenRouter secrets in this repository, APK resources, BuildConfig, or source code. Store user-entered provider keys in the encrypted local store or use a server-side proxy with environment/secret-manager credentials.
+1. Install the APK from the successful GitHub Actions `MAYA-debug-apk` artifact.
+2. Open MAYA.
+3. Tap **Accessibility** and enable MAYA.
+4. Tap **Notifications** and grant notification access if you want notification intelligence/replies.
+5. Grant microphone and notification permissions when Android asks.
+6. Grant **Overlay** permission for the floating orb.
+7. In MAYA, paste your OpenAI API key into **AI Provider → OpenAI API key** and tap **Save key**.
+8. The key is stored locally in encrypted preferences. It is not committed to GitHub.
+9. Tap **Start Agent** if you want the foreground agent service.
 
-## Build
-Open the project in Android Studio with JDK 17 and sync Gradle. The CI workflow provisions Gradle 8.11.1 and runs `gradle :app:assembleDebug`.
+## Security model
 
-## Roadmap
-1. Gemini/OpenAI provider adapters with structured tool calls
-2. MediaProjection screenshot pipeline with explicit user consent
-3. Macro recorder/replayer with checkpoints and rollback semantics
-4. Wake-word engine and owner verification using an on-device model
-5. SOS workflow with explicit confirmation and Android-version-safe communication APIs
-6. Settings UI for permissions, personas, providers, automation safety, and audit logs
+The LLM does not receive unrestricted shell/root access. It can only request allow-listed native tools. High-impact capabilities should require an explicit confirmation layer before sending messages, making calls, deleting data, purchases, or SOS actions.
+
+## APK
+
+Every successful push to `main` builds `app-debug.apk` and uploads it as the `MAYA-debug-apk` workflow artifact for 14 days.
+
+## Android limitations
+
+Accessibility, notification access, microphone background execution, SMS/call control, and screen capture are subject to Android version, OEM, permission, and Google Play policy restrictions. MAYA must report unavailable capabilities rather than pretending they succeeded.
